@@ -28,6 +28,8 @@ type ValuationResult = {
   projected_cash_flows: number[];
 };
 
+type FinancialUnit = "crore" | "million" | "billion";
+
 const initialInputs: ValuationInput = {
   company_name: "",
   currency: "INR",
@@ -47,6 +49,32 @@ const initialInputs: ValuationInput = {
   forecast_years: 5,
 };
 
+const unitLabels: Record<FinancialUnit, string> = {
+  crore: "crore",
+  million: "million",
+  billion: "billion",
+};
+
+const shareUnitLabels: Record<FinancialUnit, string> = {
+  crore: "crore shares",
+  million: "million shares",
+  billion: "billion shares",
+};
+
+const currencySymbols: Record<string, string> = {
+  INR: "₹",
+  USD: "$",
+  GBP: "£",
+  EUR: "€",
+};
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 function formatValue(value: number, currency: string) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -56,10 +84,18 @@ function formatValue(value: number, currency: string) {
 }
 
 function App() {
-  const [inputs, setInputs] = useState(initialInputs);
+  const [inputs, setInputs] = useState<ValuationInput>(initialInputs);
   const [result, setResult] = useState<ValuationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [financialUnit, setFinancialUnit] =
+    useState<FinancialUnit>("crore");
+
+  const currencySymbol =
+    currencySymbols[inputs.currency] ?? inputs.currency;
+
+  const monetaryUnit = unitLabels[financialUnit];
+  const moneyUnitLabel = `${currencySymbol} ${monetaryUnit}`;
 
   function updateInput(
     field: keyof ValuationInput,
@@ -72,6 +108,13 @@ function App() {
           ? value
           : Number(value),
     }));
+
+    setResult(null);
+    setError("");
+  }
+
+  function updateFinancialUnit(value: string) {
+    setFinancialUnit(value as FinancialUnit);
     setResult(null);
     setError("");
   }
@@ -97,7 +140,7 @@ function App() {
     ) {
       setError(
         "Check your inputs. WACC must exceed terminal growth, " +
-        "shares must be positive, and the forecast must be 1–10 years."
+          "shares must be positive, and the forecast must be 1–10 years."
       );
       return;
     }
@@ -109,7 +152,9 @@ function App() {
         "https://valora-api-53e8.onrender.com/api/valuation/dcf",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(inputs),
         }
       );
@@ -117,7 +162,9 @@ function App() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || "Valuation calculation failed.");
+        throw new Error(
+          data.detail || "Valuation calculation failed."
+        );
       }
 
       setResult(data);
@@ -140,18 +187,34 @@ function App() {
   ) => (
     <label className="field" key={key}>
       <span>{label}</span>
+
       <div className="input-wrap">
         <input
-          type={key === "company_name" || key === "currency" ? "text" : "number"}
+          type={
+            key === "company_name" || key === "currency"
+              ? "text"
+              : "number"
+          }
           value={inputs[key]}
           step={step}
-          onChange={(event) => updateInput(key, event.target.value)}
+          onChange={(event) =>
+            updateInput(key, event.target.value)
+          }
           required
         />
+
         {suffix && <span className="suffix">{suffix}</span>}
       </div>
     </label>
   );
+
+  const moneyField = (
+    label: string,
+    key: keyof ValuationInput
+  ) => field(`${label} (${moneyUnitLabel})`, key);
+
+  const formatMoney = (value: number) =>
+    `${formatValue(value, inputs.currency)} ${monetaryUnit}`;
 
   return (
     <main className="app-shell">
@@ -160,7 +223,10 @@ function App() {
           <span className="brand-mark">V</span>
           <span>valora</span>
         </a>
-        <span className="topbar-label">DCF VALUATION WORKSPACE</span>
+
+        <span className="topbar-label">
+          DCF VALUATION WORKSPACE
+        </span>
       </header>
 
       <section className="page-heading">
@@ -168,9 +234,11 @@ function App() {
           <p className="eyebrow">FINANCIAL ANALYSIS</p>
           <h1>DCF Valuation Calculator</h1>
           <p className="subtitle">
-            Estimate a company's intrinsic value using projected free cash flows.
+            Estimate a company's intrinsic value using projected
+            free cash flows.
           </p>
         </div>
+
         <span className="version-tag">VERSION 1.0</span>
       </section>
 
@@ -179,20 +247,27 @@ function App() {
           <div className="panel-heading">
             <div>
               <h2>Valuation assumptions</h2>
-              <p>Enter your company's financial data and assumptions.</p>
+              <p>
+                Enter your company's financial data and assumptions.
+              </p>
             </div>
+
             <span className="step-number">01</span>
           </div>
 
           <div className="form-section">
             <h3>Company information</h3>
+
             <div className="form-grid">
               {field("Company name", "company_name")}
+
               <label className="field">
                 <span>Reporting currency</span>
                 <select
                   value={inputs.currency}
-                  onChange={(e) => updateInput("currency", e.target.value)}
+                  onChange={(event) =>
+                    updateInput("currency", event.target.value)
+                  }
                 >
                   <option value="INR">INR — Indian Rupee</option>
                   <option value="USD">USD — US Dollar</option>
@@ -200,12 +275,30 @@ function App() {
                   <option value="EUR">EUR — Euro</option>
                 </select>
               </label>
+
+              <label className="field">
+                <span>Financial unit</span>
+                <select
+                  value={financialUnit}
+                  onChange={(event) =>
+                    updateFinancialUnit(event.target.value)
+                  }
+                >
+                  <option value="crore">Crore</option>
+                  <option value="million">Million</option>
+                  <option value="billion">Billion</option>
+                </select>
+              </label>
+
               <label className="field">
                 <span>Forecast period</span>
                 <select
                   value={inputs.forecast_years}
-                  onChange={(e) =>
-                    updateInput("forecast_years", e.target.value)
+                  onChange={(event) =>
+                    updateInput(
+                      "forecast_years",
+                      event.target.value
+                    )
                   }
                 >
                   {[3, 5, 7, 10].map((year) => (
@@ -221,20 +314,28 @@ function App() {
           <div className="form-section">
             <h3>Base-year financials</h3>
             <p className="section-description">
-              Enter values in the same currency units, for example ₹ crore.
+              Use consistent monetary units for all financial inputs.
             </p>
+
             <div className="form-grid">
-              {field("Revenue", "revenue")}
-              {field("EBIT / Operating profit", "ebit")}
+              {moneyField("Revenue", "revenue")}
+              {moneyField("EBIT / Operating profit", "ebit")}
               {field("Tax rate", "tax_rate", "%")}
-              {field("Depreciation & amortization", "depreciation")}
-              {field("Capital expenditure", "capex")}
-              {field("Change in net working capital", "change_nwc")}
+              {moneyField(
+                "Depreciation & amortization",
+                "depreciation"
+              )}
+              {moneyField("Capital expenditure", "capex")}
+              {moneyField(
+                "Change in net working capital",
+                "change_nwc"
+              )}
             </div>
           </div>
 
           <div className="form-section">
             <h3>Forecast assumptions</h3>
+
             <div className="form-grid">
               {field("Annual revenue growth", "revenue_growth", "%")}
               {field("EBIT margin", "ebit_margin", "%")}
@@ -245,15 +346,23 @@ function App() {
 
           <div className="form-section">
             <h3>Equity value adjustments</h3>
+
             <div className="form-grid">
-              {field("Cash & cash equivalents", "cash")}
-              {field("Total debt", "debt")}
-              {field("Diluted shares outstanding", "shares")}
+              {moneyField("Cash & cash equivalents", "cash")}
+              {moneyField("Total debt", "debt")}
+              {field(
+                `Diluted shares outstanding (${shareUnitLabels[financialUnit]})`,
+                "shares"
+              )}
             </div>
           </div>
 
           <div className="form-footer">
-            <p>All assumptions should be reviewed before relying on results.</p>
+            <p>
+              Review all assumptions and units before relying on
+              the results.
+            </p>
+
             <button
               className="calculate-button"
               onClick={calculateValuation}
@@ -264,7 +373,11 @@ function App() {
             </button>
           </div>
 
-          {error && <div className="error-message">{error}</div>}
+          {error && (
+            <div className="error-message" role="alert">
+              {error}
+            </div>
+          )}
         </section>
 
         <aside className="results-panel">
@@ -273,6 +386,7 @@ function App() {
               <p className="eyebrow">VALUATION OUTPUT</p>
               <h2>Results</h2>
             </div>
+
             <span className="step-number">02</span>
           </div>
 
@@ -284,55 +398,74 @@ function App() {
                 Submit the assumptions to calculate enterprise value,
                 equity value and estimated value per share.
               </p>
+
               <div className="empty-divider" />
+
               <div className="metric-placeholder">
-                <span>Enterprise value</span>
+                <span>Enterprise value ({moneyUnitLabel})</span>
                 <strong>—</strong>
               </div>
+
               <div className="metric-placeholder">
-                <span>Equity value</span>
+                <span>Equity value ({moneyUnitLabel})</span>
                 <strong>—</strong>
               </div>
+
               <div className="metric-placeholder">
-                <span>Value per share</span>
+                <span>Value per share ({currencySymbol})</span>
                 <strong>—</strong>
               </div>
             </div>
           ) : (
             <div className="results-content">
-              <p className="result-company">{inputs.company_name}</p>
+              <p className="result-company">
+                {inputs.company_name}
+              </p>
+
               <div className="primary-result">
-                <span>Enterprise value</span>
+                <span>Enterprise value ({moneyUnitLabel})</span>
                 <strong>
-                  {formatValue(result.enterprise_value, inputs.currency)}
+                  {formatMoney(result.enterprise_value)}
                 </strong>
               </div>
+
               <div className="result-metric">
-                <span>Equity value</span>
+                <span>Equity value ({moneyUnitLabel})</span>
                 <strong>
-                  {formatValue(result.equity_value, inputs.currency)}
+                  {formatMoney(result.equity_value)}
                 </strong>
               </div>
+
               <div className="result-metric">
-                <span>Estimated value per share</span>
+                <span>
+                  Estimated value per share ({currencySymbol})
+                </span>
                 <strong>
-                  {formatValue(result.value_per_share, inputs.currency)}
+                  {formatValue(
+                    result.value_per_share,
+                    inputs.currency
+                  )}
                 </strong>
               </div>
 
               <div className="empty-divider" />
-              <h3>Projected free cash flows</h3>
-              {result.projected_cash_flows.map((cashFlow, index) => (
-                <div className="cash-flow-row" key={index}>
-                  <span>Year {index + 1}</span>
-                  <strong>
-                    {formatValue(cashFlow, inputs.currency)}
-                  </strong>
-                </div>
-              ))}
+
+              <h3>
+                Projected free cash flows ({moneyUnitLabel})
+              </h3>
+
+              {result.projected_cash_flows.map(
+                (cashFlow, index) => (
+                  <div className="cash-flow-row" key={index}>
+                    <span>Year {index + 1}</span>
+                    <strong>{formatMoney(cashFlow)}</strong>
+                  </div>
+                )
+              )}
+
               <p className="result-note">
-                Valuation estimates depend on the quality of inputs and
-                assumptions. They are not investment advice.
+                Valuation estimates depend on the quality of inputs
+                and assumptions. They are not investment advice.
               </p>
             </div>
           )}
