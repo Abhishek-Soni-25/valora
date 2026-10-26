@@ -68,13 +68,6 @@ const currencySymbols: Record<string, string> = {
   EUR: "€",
 };
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
 function formatValue(value: number, currency: string) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
