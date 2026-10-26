@@ -106,7 +106,7 @@ function App() {
 
     try {
       const response = await fetch(
-        "http://localhost:8000/api/valuation/dcf",
+        "https://valora-api-53e8.onrender.com/api/valuation/dcf",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
